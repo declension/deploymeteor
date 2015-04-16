@@ -2,6 +2,8 @@
 
 PWD=`pwd`
 APP_NAME=${PWD##*/}
+NODEPROXY_NODE_VERSION='0.12.2'
+NVM_VERSION='0.24.1'
 
 if [ -z "$1" ]; then
 	echo
@@ -81,12 +83,13 @@ prepserver)
 
     if [ "$DISTRO" = 'ubuntu' ]; then
         echo "Installing Node and NPM (Ubuntu)..."
-        sudo apt-get install git nodejs mongodb
+        # Need make and g++ for fibers
+        sudo apt-get install git nodejs mongodb make g++
         # Hack the legacy node setup in
         sudo ln -sf /usr/bin/nodejs /usr/bin/node
         sudo npm install -g npm
         echo "Installing latest NVM..."
-        curl -s https://raw.githubusercontent.com/creationix/nvm/v0.18.0/install.sh | bash
+        curl -s https://raw.githubusercontent.com/creationix/nvm/v$NVM_VERSION/install.sh | bash
     else
         echo "Installing prerequisites..."
         sudo yum install -q -y gcc gcc-c++ make git openssl-devel freetype-devel fontconfig-devel &> /dev/null
@@ -221,11 +224,11 @@ EOL2
 restartproxy)
     echo "Restarting nodeproxy..."
     ssh -t $SSH_OPT $SSH_HOST <<EOL3
-    echo "Installing and using correct NodeJS version..."
-    nvm install 0.12.2
-    nvm use 0.12.2
-    sudo ln -sf ~/.nvm/v0.12.2/bin/node /usr/bin/node
-    sudo ln -sf ~/.nvm/v0.12.2/bin/node /usr/local/bin/node
+    echo "Installing and using NodeJS version ($NODEPROXY_NODE_VERSION) for nodeproxy using nvm..."
+    nvm install $NODEPROXY_NODE_VERSION
+    nvm use $NODEPROXY_NODE_VERSION
+    sudo ln -sf ~/.nvm/versions/v$NODEPROXY_NODE_VERSION/bin/node /usr/bin/node
+    sudo ln -sf ~/.nvm/versions/v$NODEPROXY_NODE_VERSION/bin/node /usr/local/bin/node
     sudo forever stop $NODEPROXY_DIR/nodeproxy.js &> /dev/null
     sudo forever start -l $NODEPROXY_DIR/logs/forever.log -o $NODEPROXY_DIR/logs/out.log -e $NODEPROXY_DIR/logs/err.log -a -s $NODEPROXY_DIR/nodeproxy.js
 EOL3
@@ -246,11 +249,11 @@ restart)
             \$file
         done
         echo "Restarting nodeproxy..."
-        echo "Installing and using correct NodeJS version..."
-        nvm install 0.12.2
-        nvm use 0.12.2
-        sudo ln -sf ~/.nvm/v0.12.2/bin/node /usr/bin/node
-        sudo ln -sf ~/.nvm/v0.12.2/bin/node /usr/local/bin/node
+        echo "Installing and using NodeJS version ($NODEPROXY_NODE_VERSION) for nodeproxy..."
+        nvm install $NODEPROXY_NODE_VERSION
+        nvm use $NODEPROXY_NODE_VERSION
+        sudo ln -sf ~/.nvm/versions/v$NODEPROXY_NODE_VERSION/bin/node /usr/bin/node
+        sudo ln -sf ~/.nvm/versions/v$NODEPROXY_NODE_VERSION/bin/node /usr/local/bin/node
         sudo forever stop $NODEPROXY_DIR/nodeproxy.js &> /dev/null
         sudo forever start -l $NODEPROXY_DIR/logs/forever.log -o $NODEPROXY_DIR/logs/out.log -e $NODEPROXY_DIR/logs/err.log -a -s $NODEPROXY_DIR/nodeproxy.js &> /dev/null
         echo "Done"
@@ -297,7 +300,7 @@ DEFAULT_NODE_VERSION=${DEFAULT_NODE_VERSION:-0.10.29}
 #Prompt for additional app-specific info that is needed
 echo
 echo "Enter the version of NodeJS that you want to use."
-echo "Example: 0.10.29"
+echo "Example: ${DEFAULT_NODE_VERSION}"
 echo "Default (press ENTER): $DEFAULT_NODE_VERSION"
 echo
 read -e -p "NodeJS Version: " NODE_VERSION
@@ -436,11 +439,11 @@ EOLJSONDOC
 # Start/restart nodeproxy.js using forever so that hostname/IP updates are seen
 echo "Starting or restarting nodeproxy..."
 mkdir -p logs
-echo "Installing and using correct NodeJS version..."
-nvm install 0.10.29
-nvm use 0.10.29
-sudo ln -sf ~/.nvm/v0.10.29/bin/node /usr/bin/node
-sudo ln -sf ~/.nvm/v0.10.29/bin/node /usr/local/bin/node
+echo "Installing and using NodeJS version ($NODEPROXY_NODE_VERSION) for nodeproxy, using nvm..."
+nvm install $NODEPROXY_NODE_VERSION
+nvm use $NODEPROXY_NODE_VERSION
+sudo ln -sf ~/.nvm/versions/v$NODEPROXY_NODE_VERSION/bin/node /usr/bin/node
+sudo ln -sf ~/.nvm/versions/v$NODEPROXY_NODE_VERSION/bin/node /usr/local/bin/node
 sudo forever stop $NODEPROXY_DIR/nodeproxy.js &> /dev/null
 sudo forever start -l $NODEPROXY_DIR/logs/forever.log -o $NODEPROXY_DIR/logs/out.log -e $NODEPROXY_DIR/logs/err.log -a -s $NODEPROXY_DIR/nodeproxy.js
 EOLENVSETUP
@@ -475,8 +478,9 @@ fi
 
 # Use NVM to install and use correct version of node
 # Do this before bundle command so that npm updates work
-echo "Installing and using correct NodeJS version..."
-nvm install $NODE_VERSION && nvm use $NODE_VERSION && (sudo ln -sf ~/.nvm/v$NODE_VERSION/bin/node /usr/bin/node; sudo ln -sf ~/.nvm/v$NODE_VERSION/bin/node /usr/local/bin/node)
+echo "Installing and using NodeJS version ($NODE_VERSION) using nvm..."
+nvm install $NODE_VERSION && nvm use $NODE_VERSION && (sudo ln -sf ~/.nvm/versions/v$NODE_VERSION/bin/node
+/usr/bin/node; sudo ln -sf ~/.nvm/versions/v$NODE_VERSION/bin/node /usr/local/bin/node)
 
 echo "Bundling..."
 meteor bundle --directory "$BUNDLE_DIR"
@@ -532,8 +536,9 @@ cat > tmp-restartapp <<ENDCAT5
 #!/bin/sh
 
 # Use NVM to install and use correct version of node
-echo "Installing and using correct NodeJS version..."
-nvm install $NODE_VERSION && nvm use $NODE_VERSION && (sudo ln -sf ~/.nvm/v$NODE_VERSION/bin/node /usr/bin/node; sudo ln -sf ~/.nvm/v$NODE_VERSION/bin/node /usr/local/bin/node)
+echo "Installing and using NodeJS (version $NODE_VERSION)..."
+nvm install $NODE_VERSION && nvm use $NODE_VERSION && (sudo ln -sf ~/.nvm/versions/v$NODE_VERSION/bin/node
+/usr/bin/node; sudo ln -sf ~/.nvm/versions/v$NODE_VERSION/bin/node /usr/local/bin/node;)
 
 # Try to stop the node app using forever, in case it's already running
 echo "Starting or restarting this app environment on the EC2 server..."
@@ -547,6 +552,7 @@ ENDCAT5
 # Secure copy the restartapp script we just created
 scp $SSH_OPT tmp-restartapp $SSH_HOST:$APP_DIR/restartapp &> /dev/null
 # Then make it executable
+echo "Adjusting restart script permissions..."
 ssh -t $SSH_OPT $SSH_HOST <<ENDCAT6
 chmod 700 $APP_DIR/restartapp &> /dev/null
 ENDCAT6
